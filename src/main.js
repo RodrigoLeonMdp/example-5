@@ -4,6 +4,17 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 // Configuración inicial
 let scene, camera, renderer, controls, points;
 
+// Variables globales
+let amount = 600;
+let featuredCount = 200;
+let featuredPoints = new Set();
+let hoveredCraneIndex = null;
+let currentColors = new Map();
+let mouse = new THREE.Vector2();
+let raycaster = new THREE.Raycaster();
+let backgroundParticles;
+const MIN_DISTANCE = 1;
+
 // Inicializar la escena
 function initScene() {
   scene = new THREE.Scene();
@@ -154,17 +165,6 @@ function createSVGSprite() {
     img.src = url;
   });
 }
-
-// Variables globales
-let amount = 600;
-let featuredCount = 200;
-let featuredPoints = new Set();
-let hoveredCraneIndex = null;
-let currentColors = new Map();
-let mouse = new THREE.Vector2();
-let raycaster = new THREE.Raycaster();
-let backgroundParticles;
-const MIN_DISTANCE = 1;
 
 // Colores
 const colors = {
