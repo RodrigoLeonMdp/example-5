@@ -256,6 +256,7 @@ async function createPoints() {
     }
   }
 
+  //
   const geometry = new THREE.BufferGeometry().setFromPoints(pts);
 
   // Inicializar colores
