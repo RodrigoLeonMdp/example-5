@@ -29,7 +29,7 @@ controls.minDistance = 10;
 controls.maxDistance = 20;
 
 // Datos de los puntos
-let amount = 500;
+let amount = 600;
 let featuredCount = 200;
 let pts = [];
 let normals = [];
@@ -64,6 +64,12 @@ for (let i = 0; i < amount; i++) {
   if (i < featuredCount) {
     featuredPoints.add(i);
   }
+
+  // Rotación aleatoria para algunos iconos (inversión del pico)
+  if (Math.random() < 0.5) {
+    // 50% de probabilidad de invertir
+    point.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // Rotar 180 grados en el eje Y
+  }
 }
 
 // Crear la geometría de los puntos
@@ -71,7 +77,7 @@ let g = new THREE.BufferGeometry().setFromPoints(pts);
 
 // Crear un material que use la textura SVG
 let m = new THREE.PointsMaterial({
-  size: 0.95,
+  size: 2,
   map: iconTexture,
   transparent: true,
   vertexColors: true,
@@ -81,9 +87,9 @@ let m = new THREE.PointsMaterial({
 let colors = [];
 for (let i = 0; i < amount; i++) {
   if (featuredPoints.has(i)) {
-    colors.push(1, 0, 0); // Puntos destacados en rojo
+    colors.push(0.49, 0.18, 0.25); // Color destacado (granate oscuro)
   } else {
-    colors.push(0.98, 0.78, 0.55); // Color original
+    colors.push(146 / 255, 159 / 255, 229 / 255); // Color azul claro
   }
 }
 g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
@@ -91,6 +97,9 @@ g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
 // Crear el objeto de puntos y agregarlo a la escena
 let points = new THREE.Points(g, m);
 scene.add(points);
+
+// Obtener el atributo de color para actualizaciones dinámicas
+let colorAttribute = g.getAttribute("color");
 
 // Variables de interacción del ratón
 let mouse = new THREE.Vector2();
@@ -106,10 +115,34 @@ window.addEventListener("mousemove", (event) => {
   let intersects = raycaster.intersectObject(points);
 
   if (intersects.length > 0) {
-    hoveredCraneIndex = intersects[0].index;
+    let index = intersects[0].index;
+
+    if (hoveredCraneIndex !== index) {
+      // Restaurar el color del punto anteriormente seleccionado
+      if (hoveredCraneIndex !== null) {
+        let originalColor = featuredPoints.has(hoveredCraneIndex)
+          ? [0.49, 0.18, 0.25] // Granate oscuro para destacados
+          : [146 / 255, 159 / 255, 229 / 255]; // Color original para los demás
+        colorAttribute.setXYZ(hoveredCraneIndex, ...originalColor);
+      }
+
+      // Aplicar color naranja al punto actual
+      colorAttribute.setXYZ(index, 1, 0.5, 0); // Naranja para el hover
+      hoveredCraneIndex = index;
+    }
   } else {
-    hoveredCraneIndex = null;
+    // Si no hay intersecciones, restaurar el último punto hovereado
+    if (hoveredCraneIndex !== null) {
+      let originalColor = featuredPoints.has(hoveredCraneIndex)
+        ? [0.49, 0.18, 0.25]
+        : [146 / 255, 159 / 255, 229 / 255];
+      colorAttribute.setXYZ(hoveredCraneIndex, ...originalColor);
+      hoveredCraneIndex = null;
+    }
   }
+
+  // Informar a Three.js que los colores han cambiado
+  colorAttribute.needsUpdate = true;
 });
 
 // Detectar clics en los puntos destacados
