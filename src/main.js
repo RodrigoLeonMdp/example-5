@@ -28,7 +28,91 @@ controls.enableZoom = true;
 controls.minDistance = 10;
 controls.maxDistance = 20;
 
-// Datos de los puntos
+// Función para crear el sistema de partículas de fondo
+function createBackgroundParticles() {
+  const particleCount = 1000;
+  const positions = new Float32Array(particleCount * 3);
+  const velocities = [];
+  const sphereRadius = 12;
+
+  function getRandomSpherePoint() {
+    const theta = Math.random() * Math.PI * 2;
+    const phi = Math.acos(Math.random() * 2 - 1);
+    const radius = Math.random() * sphereRadius;
+
+    return {
+      x: radius * Math.sin(phi) * Math.cos(theta),
+      y: radius * Math.sin(phi) * Math.sin(theta),
+      z: radius * Math.cos(phi),
+    };
+  }
+
+  for (let i = 0; i < particleCount * 3; i += 3) {
+    const point = getRandomSpherePoint();
+    positions[i] = point.x;
+    positions[i + 1] = point.y;
+    positions[i + 2] = point.z;
+
+    velocities.push({
+      x: (Math.random() - 0.5) * 0.01,
+      y: (Math.random() - 0.5) * 0.01,
+      z: (Math.random() - 0.5) * 0.01,
+    });
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+
+  const material = new THREE.PointsMaterial({
+    size: 0.08,
+    color: 0x88ccff,
+    transparent: true,
+    opacity: 0.4,
+    blending: THREE.AdditiveBlending,
+  });
+
+  const points = new THREE.Points(geometry, material);
+
+  return {
+    points,
+    update: function () {
+      const positions = points.geometry.attributes.position.array;
+
+      for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+
+        positions[i3] += velocities[i].x;
+        positions[i3 + 1] += velocities[i].y;
+        positions[i3 + 2] += velocities[i].z;
+
+        const distance = Math.sqrt(
+          positions[i3] * positions[i3] +
+            positions[i3 + 1] * positions[i3 + 1] +
+            positions[i3 + 2] * positions[i3 + 2]
+        );
+
+        if (distance > sphereRadius) {
+          const newPoint = getRandomSpherePoint();
+          positions[i3] = newPoint.x;
+          positions[i3 + 1] = newPoint.y;
+          positions[i3 + 2] = newPoint.z;
+
+          velocities[i].x = (Math.random() - 0.5) * 0.01;
+          velocities[i].y = (Math.random() - 0.5) * 0.01;
+          velocities[i].z = (Math.random() - 0.5) * 0.01;
+        }
+      }
+
+      points.geometry.attributes.position.needsUpdate = true;
+    },
+  };
+}
+
+// Crear sistema de partículas de fondo
+const backgroundParticles = createBackgroundParticles();
+scene.add(backgroundParticles.points);
+
+// Datos de los puntos principales
 let amount = 600;
 let featuredCount = 200;
 let pts = [];
@@ -37,13 +121,7 @@ let featuredPoints = new Set();
 let q = new THREE.Quaternion();
 let front = new THREE.Vector3(0, 0, 1);
 
-// Cargar el SVG como textura
-let textureLoader = new THREE.TextureLoader();
-let iconTexture = textureLoader.load("paper-crane.svg", () => {
-  console.log("Texture loaded successfully!");
-});
-
-// Crear los puntos
+// Crear los puntos principales
 for (let i = 0; i < amount; i++) {
   let randAngle = Math.random() * Math.PI * 2;
   let randRadius = Math.random();
@@ -60,22 +138,23 @@ for (let i = 0; i < amount; i++) {
   pts.push(point);
   normals.push(randNorm);
 
-  // Marcar algunos puntos como destacados
   if (i < featuredCount) {
     featuredPoints.add(i);
   }
 
-  // Rotación aleatoria para algunos iconos (inversión del pico)
   if (Math.random() < 0.5) {
-    // 50% de probabilidad de invertir
-    point.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI); // Rotar 180 grados en el eje Y
+    point.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
   }
 }
 
-// Crear la geometría de los puntos
-let g = new THREE.BufferGeometry().setFromPoints(pts);
+// Cargar el SVG como textura
+let textureLoader = new THREE.TextureLoader();
+let iconTexture = textureLoader.load("paper-crane.svg", () => {
+  console.log("Texture loaded successfully!");
+});
 
-// Crear un material que use la textura SVG
+// Crear la geometría y material de los puntos principales
+let g = new THREE.BufferGeometry().setFromPoints(pts);
 let m = new THREE.PointsMaterial({
   size: 2,
   map: iconTexture,
@@ -83,80 +162,111 @@ let m = new THREE.PointsMaterial({
   vertexColors: true,
 });
 
-// Colores de los puntos
-let colors = [];
-for (let i = 0; i < amount; i++) {
-  if (featuredPoints.has(i)) {
-    colors.push(0.49, 0.18, 0.25); // Color destacado (granate oscuro)
-  } else {
-    colors.push(146 / 255, 159 / 255, 229 / 255); // Color azul claro
-  }
-}
-g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+// Colores con interpolación
+const colors = {
+  normal: new THREE.Color(146 / 255, 159 / 255, 229 / 255),
+  featured: new THREE.Color(0.49, 0.18, 0.25),
+  hover: new THREE.Color(1, 0.5, 0),
+};
 
-// Crear el objeto de puntos y agregarlo a la escena
+// Inicializar colores
+let colorArray = new Float32Array(amount * 3);
+for (let i = 0; i < amount; i++) {
+  const color = featuredPoints.has(i) ? colors.featured : colors.normal;
+  colorArray[i * 3] = color.r;
+  colorArray[i * 3 + 1] = color.g;
+  colorArray[i * 3 + 2] = color.b;
+}
+
+g.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
 let points = new THREE.Points(g, m);
 scene.add(points);
 
-// Obtener el atributo de color para actualizaciones dinámicas
-let colorAttribute = g.getAttribute("color");
-
-// Variables de interacción del ratón
+// Variables de interacción
 let mouse = new THREE.Vector2();
 let raycaster = new THREE.Raycaster();
 let hoveredCraneIndex = null;
+let currentColors = new Map();
+
+// Función para transición suave de colores
+function lerpColors(index, targetColor, speed = 0.1) {
+  const currentColor =
+    currentColors.get(index) ||
+    (featuredPoints.has(index) ? colors.featured : colors.normal);
+
+  const r = currentColor.r + (targetColor.r - currentColor.r) * speed;
+  const g = currentColor.g + (targetColor.g - currentColor.g) * speed;
+  const b = currentColor.b + (targetColor.b - currentColor.b) * speed;
+
+  const newColor = new THREE.Color(r, g, b);
+  currentColors.set(index, newColor);
+
+  colorArray[index * 3] = newColor.r;
+  colorArray[index * 3 + 1] = newColor.g;
+  colorArray[index * 3 + 2] = newColor.b;
+
+  return (
+    Math.abs(targetColor.r - r) < 0.01 &&
+    Math.abs(targetColor.g - g) < 0.01 &&
+    Math.abs(targetColor.b - b) < 0.01
+  );
+}
 
 // Actualizar la posición del ratón
 window.addEventListener("mousemove", (event) => {
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-
-  raycaster.setFromCamera(mouse, camera);
-  let intersects = raycaster.intersectObject(points);
-
-  if (intersects.length > 0) {
-    let index = intersects[0].index;
-
-    if (hoveredCraneIndex !== index) {
-      // Restaurar el color del punto anteriormente seleccionado
-      if (hoveredCraneIndex !== null) {
-        let originalColor = featuredPoints.has(hoveredCraneIndex)
-          ? [0.49, 0.18, 0.25] // Granate oscuro para destacados
-          : [146 / 255, 159 / 255, 229 / 255]; // Color original para los demás
-        colorAttribute.setXYZ(hoveredCraneIndex, ...originalColor);
-      }
-
-      // Aplicar color naranja al punto actual
-      colorAttribute.setXYZ(index, 1, 0.5, 0); // Naranja para el hover
-      hoveredCraneIndex = index;
-    }
-  } else {
-    // Si no hay intersecciones, restaurar el último punto hovereado
-    if (hoveredCraneIndex !== null) {
-      let originalColor = featuredPoints.has(hoveredCraneIndex)
-        ? [0.49, 0.18, 0.25]
-        : [146 / 255, 159 / 255, 229 / 255];
-      colorAttribute.setXYZ(hoveredCraneIndex, ...originalColor);
-      hoveredCraneIndex = null;
-    }
-  }
-
-  // Informar a Three.js que los colores han cambiado
-  colorAttribute.needsUpdate = true;
 });
 
-// Detectar clics en los puntos destacados
+// Detectar clics
 window.addEventListener("click", () => {
   if (hoveredCraneIndex !== null && featuredPoints.has(hoveredCraneIndex)) {
     alert(`¡Clickeaste el punto destacado #${hoveredCraneIndex}!`);
   }
 });
 
-// Bucle de animación con rotación suave
-renderer.setAnimationLoop(() => {
-  // Rotar suavemente la nube de puntos
-  points.rotation.y += 0.0004; // Controla la velocidad de rotación (más lento o más rápido)
+// Bucle de animación
+function animate() {
+  requestAnimationFrame(animate);
 
+  // Actualizar partículas de fondo
+  backgroundParticles.update();
+
+  // Actualizar interacción del ratón
+  raycaster.setFromCamera(mouse, camera);
+  let intersects = raycaster.intersectObject(points);
+
+  if (intersects.length > 0) {
+    let index = intersects[0].index;
+    if (hoveredCraneIndex !== index) {
+      if (hoveredCraneIndex !== null) {
+        const originalColor = featuredPoints.has(hoveredCraneIndex)
+          ? colors.featured
+          : colors.normal;
+        lerpColors(hoveredCraneIndex, originalColor);
+      }
+      hoveredCraneIndex = index;
+    }
+    lerpColors(index, colors.hover);
+  } else if (hoveredCraneIndex !== null) {
+    const originalColor = featuredPoints.has(hoveredCraneIndex)
+      ? colors.featured
+      : colors.normal;
+    if (lerpColors(hoveredCraneIndex, originalColor)) {
+      hoveredCraneIndex = null;
+    }
+  }
+
+  // Actualizar colores
+  g.attributes.color.needsUpdate = true;
+
+  // Rotar puntos
+  points.rotation.y += 0.0004;
+
+  // Actualizar controles y renderizar
   controls.update();
   renderer.render(scene, camera);
-});
+}
+
+// Iniciar animación
+animate();
