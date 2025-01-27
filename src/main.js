@@ -299,7 +299,7 @@ function setupEventListeners() {
   });
 
   window.addEventListener("click", () => {
-    if (hoveredCraneIndex !== null && featuredPoints.has(hoveredCraneIndex)) {
+    if (hoveredCraneIndex !== null) {
       alert(`¡Clickeaste el punto destacado #${hoveredCraneIndex}!`);
     }
   });
@@ -336,7 +336,7 @@ function animate() {
   }
 
   points.geometry.attributes.color.needsUpdate = true;
-  points.rotation.y += 0.0004;
+  points.rotation.y += 0.0001;
 
   controls.update();
   renderer.render(scene, camera);
