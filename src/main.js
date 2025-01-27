@@ -10,14 +10,15 @@ function initScene() {
   scene.background = new THREE.Color(0x232121);
 
   camera = new THREE.PerspectiveCamera(
-    60,
+    55,
     window.innerWidth / window.innerHeight,
     1,
     1000
   );
   camera.position.set(0, 0, 20);
 
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
   renderer.setPixelRatio(window.devicePixelRatio);
   renderer.setSize(window.innerWidth, window.innerHeight);
   document.body.appendChild(renderer.domElement);
@@ -346,6 +347,7 @@ async function init() {
   initScene();
   backgroundParticles = createBackgroundParticles();
   scene.add(backgroundParticles.points);
+
   await createPoints();
   setupEventListeners();
   animate();
