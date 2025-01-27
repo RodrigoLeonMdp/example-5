@@ -1,39 +1,40 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
-// Crear la escena
-let scene = new THREE.Scene();
-scene.background = new THREE.Color(0x404040);
+// Configuración inicial
+let scene, camera, renderer, controls, points;
 
-// Crear la cámara
-let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 1000);
-camera.position.set(0, 0, 20);
+// Inicializar la escena
+function initScene() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x404040);
 
-// Crear el renderizador
-let renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(innerWidth, innerHeight);
-document.body.appendChild(renderer.domElement);
+  camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    1,
+    1000
+  );
+  camera.position.set(0, 0, 20);
 
-// Ajustar el tamaño del canvas cuando se redimensiona la ventana
-window.addEventListener("resize", () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
 
-// Agregar los controles de la cámara
-let controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enableZoom = true;
-controls.minDistance = 10;
-controls.maxDistance = 20;
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.enableZoom = true;
+  controls.minDistance = 10;
+  controls.maxDistance = 20;
+}
 
-// Función para crear el sistema de partículas de fondo
+// Sistema de partículas de fondo
 function createBackgroundParticles() {
-  const particleCount = 1000;
+  const particleCount = 600;
   const positions = new Float32Array(particleCount * 3);
   const velocities = [];
-  const sphereRadius = 12;
+  const sphereRadius = 60;
 
   function getRandomSpherePoint() {
     const theta = Math.random() * Math.PI * 2;
@@ -108,85 +109,57 @@ function createBackgroundParticles() {
   };
 }
 
-// Crear sistema de partículas de fondo
-const backgroundParticles = createBackgroundParticles();
-scene.add(backgroundParticles.points);
+// Crear sprite SVG
+function createSVGSprite() {
+  const svgString = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="114" height="114" viewBox="0 0 114 114" fill="none">
+      <path d="M65.2144 66.2889L52.7884 39.4239L88.8556 20.3532L65.2144 66.2889ZM22.4622 37.7277L24.4573 44.2193L13.9619 49.3335L22.4622 37.7277ZM81.9745 36.4388L92.1353 36.1612L71.7556 56.3097L81.9745 36.4399V36.4388ZM44.1919 52.4389L34.1082 71.3619L23.8303 37.925L44.1919 52.4389ZM71.6628 83.2601L34.8661 72.5853L51.9408 40.5618L71.6628 83.259V83.2601ZM75.506 76L99.5484 80.5441L89.4636 85.1527L75.506 76ZM68.1646 72.6676L100.086 93.6172L73.2904 83.7488L68.1689 72.676L68.1646 72.6676Z" fill="#929FE5"/>
+    </svg>
+  `;
 
-// Datos de los puntos principales
-let amount = 600;
-let featuredCount = 200;
-let pts = [];
-let normals = [];
-let featuredPoints = new Set();
-let q = new THREE.Quaternion();
-let front = new THREE.Vector3(0, 0, 1);
+  const blob = new Blob([svgString], { type: "image/svg+xml" });
+  const url = URL.createObjectURL(blob);
 
-// Crear los puntos principales
-for (let i = 0; i < amount; i++) {
-  let randAngle = Math.random() * Math.PI * 2;
-  let randRadius = Math.random();
-  let point = new THREE.Vector3(
-    Math.cos(randAngle) * (8 + randRadius),
-    Math.sin(randAngle) * (8 + randRadius),
-    0
-  );
+  const canvas = document.createElement("canvas");
+  canvas.width = 1000;
+  canvas.height = 1000;
+  const ctx = canvas.getContext("2d");
 
-  let randNorm = new THREE.Vector3().randomDirection();
-  q.setFromUnitVectors(front, randNorm);
-  point.applyQuaternion(q);
+  const img = new Image();
 
-  pts.push(point);
-  normals.push(randNorm);
+  return new Promise((resolve) => {
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  if (i < featuredCount) {
-    featuredPoints.add(i);
-  }
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.needsUpdate = true;
+      texture.magFilter = THREE.NearestFilter;
+      texture.minFilter = THREE.LinearFilter;
 
-  if (Math.random() < 0.5) {
-    point.applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
-  }
+      resolve(texture);
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  });
 }
 
-// Cargar el SVG como textura
-let textureLoader = new THREE.TextureLoader();
-let iconTexture = textureLoader.load("paper-crane.svg", () => {
-  console.log("Texture loaded successfully!");
-});
+// Variables globales
+let amount = 600;
+let featuredCount = 200;
+let featuredPoints = new Set();
+let hoveredCraneIndex = null;
+let currentColors = new Map();
+let mouse = new THREE.Vector2();
+let raycaster = new THREE.Raycaster();
+let backgroundParticles;
 
-// Crear la geometría y material de los puntos principales
-let g = new THREE.BufferGeometry().setFromPoints(pts);
-let m = new THREE.PointsMaterial({
-  size: 2,
-  map: iconTexture,
-  transparent: true,
-  vertexColors: true,
-});
-
-// Colores con interpolación
+// Colores
 const colors = {
   normal: new THREE.Color(146 / 255, 159 / 255, 229 / 255),
   featured: new THREE.Color(0.49, 0.18, 0.25),
   hover: new THREE.Color(1, 0.5, 0),
 };
-
-// Inicializar colores
-let colorArray = new Float32Array(amount * 3);
-for (let i = 0; i < amount; i++) {
-  const color = featuredPoints.has(i) ? colors.featured : colors.normal;
-  colorArray[i * 3] = color.r;
-  colorArray[i * 3 + 1] = color.g;
-  colorArray[i * 3 + 2] = color.b;
-}
-
-g.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
-let points = new THREE.Points(g, m);
-scene.add(points);
-
-// Variables de interacción
-let mouse = new THREE.Vector2();
-let raycaster = new THREE.Raycaster();
-let hoveredCraneIndex = null;
-let currentColors = new Map();
 
 // Función para transición suave de colores
 function lerpColors(index, targetColor, speed = 0.1) {
@@ -201,9 +174,8 @@ function lerpColors(index, targetColor, speed = 0.1) {
   const newColor = new THREE.Color(r, g, b);
   currentColors.set(index, newColor);
 
-  colorArray[index * 3] = newColor.r;
-  colorArray[index * 3 + 1] = newColor.g;
-  colorArray[index * 3 + 2] = newColor.b;
+  const colorAttribute = points.geometry.attributes.color;
+  colorAttribute.setXYZ(index, newColor.r, newColor.g, newColor.b);
 
   return (
     Math.abs(targetColor.r - r) < 0.01 &&
@@ -212,32 +184,92 @@ function lerpColors(index, targetColor, speed = 0.1) {
   );
 }
 
-// Actualizar la posición del ratón
-window.addEventListener("mousemove", (event) => {
-  mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-  mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-});
+// Crear los puntos principales
+async function createPoints() {
+  const pts = [];
+  const normals = [];
+  const q = new THREE.Quaternion();
+  const front = new THREE.Vector3(0, 0, 1);
 
-// Detectar clics
-window.addEventListener("click", () => {
-  if (hoveredCraneIndex !== null && featuredPoints.has(hoveredCraneIndex)) {
-    alert(`¡Clickeaste el punto destacado #${hoveredCraneIndex}!`);
+  for (let i = 0; i < amount; i++) {
+    let randAngle = Math.random() * Math.PI * 2;
+    let randRadius = Math.random();
+    let point = new THREE.Vector3(
+      Math.cos(randAngle) * (9 + randRadius),
+      Math.sin(randAngle) * (9 + randRadius),
+      0
+    );
+
+    let randNorm = new THREE.Vector3().randomDirection();
+    q.setFromUnitVectors(front, randNorm);
+    point.applyQuaternion(q);
+
+    pts.push(point);
+    normals.push(randNorm);
+
+    if (i < featuredCount) {
+      featuredPoints.add(i);
+    }
   }
-});
 
-// Bucle de animación
+  const geometry = new THREE.BufferGeometry().setFromPoints(pts);
+
+  // Inicializar colores
+  const colorArray = new Float32Array(amount * 3);
+  for (let i = 0; i < amount; i++) {
+    const color = featuredPoints.has(i) ? colors.featured : colors.normal;
+    colorArray[i * 3] = color.r;
+    colorArray[i * 3 + 1] = color.g;
+    colorArray[i * 3 + 2] = color.b;
+  }
+
+  geometry.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
+
+  const spriteTexture = await createSVGSprite();
+  const material = new THREE.PointsMaterial({
+    size: 2.5,
+    map: spriteTexture,
+    transparent: true,
+    vertexColors: true,
+    alphaTest: 0.5,
+    depthWrite: false,
+  });
+
+  points = new THREE.Points(geometry, material);
+  scene.add(points);
+}
+
+// Event listeners
+function setupEventListeners() {
+  window.addEventListener("resize", () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  window.addEventListener("mousemove", (event) => {
+    mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+  });
+
+  window.addEventListener("click", () => {
+    if (hoveredCraneIndex !== null && featuredPoints.has(hoveredCraneIndex)) {
+      alert(`¡Clickeaste el punto destacado #${hoveredCraneIndex}!`);
+    }
+  });
+}
+
+// Función de animación
 function animate() {
   requestAnimationFrame(animate);
 
-  // Actualizar partículas de fondo
   backgroundParticles.update();
 
-  // Actualizar interacción del ratón
   raycaster.setFromCamera(mouse, camera);
-  let intersects = raycaster.intersectObject(points);
+  const intersects = raycaster.intersectObject(points);
 
   if (intersects.length > 0) {
-    let index = intersects[0].index;
+    const index = intersects[0].index;
     if (hoveredCraneIndex !== index) {
       if (hoveredCraneIndex !== null) {
         const originalColor = featuredPoints.has(hoveredCraneIndex)
@@ -257,16 +289,22 @@ function animate() {
     }
   }
 
-  // Actualizar colores
-  g.attributes.color.needsUpdate = true;
-
-  // Rotar puntos
+  points.geometry.attributes.color.needsUpdate = true;
   points.rotation.y += 0.0004;
 
-  // Actualizar controles y renderizar
   controls.update();
   renderer.render(scene, camera);
 }
 
-// Iniciar animación
-animate();
+// Inicialización principal
+async function init() {
+  initScene();
+  backgroundParticles = createBackgroundParticles();
+  scene.add(backgroundParticles.points);
+  await createPoints();
+  setupEventListeners();
+  animate();
+}
+
+// Iniciar la aplicación
+init();
