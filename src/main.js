@@ -31,7 +31,7 @@ function initScene() {
 
 // Sistema de partículas de fondo
 function createBackgroundParticles() {
-  const particleCount = 600;
+  const particleCount = 1000;
   const positions = new Float32Array(particleCount * 3);
   const velocities = [];
   const sphereRadius = 60;
@@ -111,13 +111,23 @@ function createBackgroundParticles() {
 
 // Crear sprite SVG
 function createSVGSprite() {
+  const randomIndex = Math.random() < 0.5 ? 0 : 1;
+
   const svgString = `
     <svg xmlns="http://www.w3.org/2000/svg" width="114" height="114" viewBox="0 0 114 114" fill="none">
       <path d="M65.2144 66.2889L52.7884 39.4239L88.8556 20.3532L65.2144 66.2889ZM22.4622 37.7277L24.4573 44.2193L13.9619 49.3335L22.4622 37.7277ZM81.9745 36.4388L92.1353 36.1612L71.7556 56.3097L81.9745 36.4399V36.4388ZM44.1919 52.4389L34.1082 71.3619L23.8303 37.925L44.1919 52.4389ZM71.6628 83.2601L34.8661 72.5853L51.9408 40.5618L71.6628 83.259V83.2601ZM75.506 76L99.5484 80.5441L89.4636 85.1527L75.506 76ZM68.1646 72.6676L100.086 93.6172L73.2904 83.7488L68.1689 72.676L68.1646 72.6676Z" fill="#929FE5"/>
     </svg>
   `;
 
-  const blob = new Blob([svgString], { type: "image/svg+xml" });
+  const rotatedSvgString = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="142" height="142" viewBox="0 0 142 142" fill="none">
+      <path d="M60.7681 82.5703L76.2461 49.107L31.3202 25.3522L60.7681 82.5703ZM114.021 46.9941L111.536 55.0802L124.609 61.4505L114.021 46.9941ZM39.8915 45.3887L27.2351 45.0429L52.6202 70.1401L39.8915 45.39V45.3887ZM86.954 65.3187L99.5144 88.8893L112.317 47.24L86.954 65.3187ZM52.7359 103.71L98.5704 90.4132L77.3019 50.5244L52.7359 103.709V103.71ZM47.9487 94.6666L18.0011 100.327L30.5629 106.067L47.9487 94.6666ZM57.0932 90.5158L17.3319 116.611L50.7085 104.319L57.088 90.5263L57.0932 90.5158Z" fill="#929FE5"/>
+    </svg>
+`;
+
+  const blob = new Blob([randomIndex === 1 ? svgString : rotatedSvgString], {
+    type: "image/svg+xml",
+  });
   const url = URL.createObjectURL(blob);
 
   const canvas = document.createElement("canvas");
@@ -153,6 +163,7 @@ let currentColors = new Map();
 let mouse = new THREE.Vector2();
 let raycaster = new THREE.Raycaster();
 let backgroundParticles;
+const MIN_DISTANCE = 1;
 
 // Colores
 const colors = {
@@ -184,6 +195,17 @@ function lerpColors(index, targetColor, speed = 0.1) {
   );
 }
 
+// Función para verificar si un punto está lo suficientemente lejos de los demás
+function isFarEnough(newPoint, existingPoints) {
+  for (let point of existingPoints) {
+    const distance = newPoint.distanceTo(point);
+    if (distance < MIN_DISTANCE) {
+      return false; // El punto está demasiado cerca de otro
+    }
+  }
+  return true; // El punto está lo suficientemente lejos
+}
+
 // Crear los puntos principales
 async function createPoints() {
   const pts = [];
@@ -191,20 +213,42 @@ async function createPoints() {
   const q = new THREE.Quaternion();
   const front = new THREE.Vector3(0, 0, 1);
 
+  const existingPoints = []; // Para almacenar los puntos generados
+
   for (let i = 0; i < amount; i++) {
-    let randAngle = Math.random() * Math.PI * 2;
-    let randRadius = Math.random();
-    let point = new THREE.Vector3(
-      Math.cos(randAngle) * (9 + randRadius),
-      Math.sin(randAngle) * (9 + randRadius),
-      0
-    );
+    let newPoint;
+    let retries = 0;
 
-    let randNorm = new THREE.Vector3().randomDirection();
-    q.setFromUnitVectors(front, randNorm);
-    point.applyQuaternion(q);
+    // Intentar generar un punto que no se superponga
+    do {
+      let randAngle = Math.random() * Math.PI * 2;
+      let randRadius = Math.random();
+      newPoint = new THREE.Vector3(
+        Math.cos(randAngle) * (8 + randRadius),
+        Math.sin(randAngle) * (8 + randRadius),
+        0
+      );
 
-    pts.push(point);
+      // Aplicar rotación aleatoria
+      let randNorm = new THREE.Vector3().randomDirection();
+      q.setFromUnitVectors(front, randNorm);
+      newPoint.applyQuaternion(q);
+
+      retries++;
+      // Limitar los intentos para evitar un bucle infinito
+      if (retries > 100) {
+        console.warn(
+          "No se pudo encontrar un punto válido después de 100 intentos."
+        );
+        break;
+      }
+    } while (!isFarEnough(newPoint, existingPoints)); // Verificar si está lo suficientemente lejos
+
+    // Agregar el punto a la lista de puntos existentes
+    pts.push(newPoint);
+    existingPoints.push(newPoint); // Guardamos este punto
+
+    const randNorm = new THREE.Vector3().randomDirection();
     normals.push(randNorm);
 
     if (i < featuredCount) {
@@ -227,7 +271,7 @@ async function createPoints() {
 
   const spriteTexture = await createSVGSprite();
   const material = new THREE.PointsMaterial({
-    size: 2.5,
+    size: 1.85,
     map: spriteTexture,
     transparent: true,
     vertexColors: true,
