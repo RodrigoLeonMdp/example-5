@@ -6,7 +6,7 @@ let scene = new THREE.Scene();
 scene.background = new THREE.Color(0x404040);
 
 // Crear la cámara
-let camera = new THREE.PerspectiveCamera(20, innerWidth / innerHeight, 1, 1000);
+let camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 1, 1000);
 camera.position.set(0, 0, 20);
 
 // Crear el renderizador
@@ -25,12 +25,12 @@ window.addEventListener("resize", () => {
 let controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.enableZoom = true;
-controls.minDistance = 0;
+controls.minDistance = 10;
 controls.maxDistance = 20;
 
 // Datos de los puntos
-let amount = 800;
-let featuredCount = 200; // Número de puntos destacados
+let amount = 500;
+let featuredCount = 200;
 let pts = [];
 let normals = [];
 let featuredPoints = new Set();
@@ -39,15 +39,17 @@ let front = new THREE.Vector3(0, 0, 1);
 
 // Cargar el SVG como textura
 let textureLoader = new THREE.TextureLoader();
-let iconTexture = textureLoader.load("paper-crane.svg"); // Ruta al icono SVG
+let iconTexture = textureLoader.load("paper-crane.svg", () => {
+  console.log("Texture loaded successfully!");
+});
 
 // Crear los puntos
 for (let i = 0; i < amount; i++) {
   let randAngle = Math.random() * Math.PI * 2;
   let randRadius = Math.random();
   let point = new THREE.Vector3(
-    Math.cos(randAngle) * (5 + randRadius), // Reduce el radio para agrupar más los puntos
-    Math.sin(randAngle) * (5 + randRadius),
+    Math.cos(randAngle) * (8 + randRadius),
+    Math.sin(randAngle) * (8 + randRadius),
     0
   );
 
@@ -67,22 +69,21 @@ for (let i = 0; i < amount; i++) {
 // Crear la geometría de los puntos
 let g = new THREE.BufferGeometry().setFromPoints(pts);
 
-// Crear un material que use la textura SVG y mantenga el tamaño constante
+// Crear un material que use la textura SVG
 let m = new THREE.PointsMaterial({
-  size: 20, // Tamaño de los puntos (ajustar según el diseño)
-  map: iconTexture, // Usar la textura SVG
-  transparent: true, // Asegurar la transparencia
-  sizeAttenuation: false, // Mantener el tamaño constante en pantalla
-  vertexColors: true, // Permitir colores personalizados para cada punto
+  size: 0.95,
+  map: iconTexture,
+  transparent: true,
+  vertexColors: true,
 });
 
-// Colores de los puntos (destacados en rojo)
+// Colores de los puntos
 let colors = [];
 for (let i = 0; i < amount; i++) {
   if (featuredPoints.has(i)) {
     colors.push(1, 0, 0); // Puntos destacados en rojo
   } else {
-    colors.push(0.98, 0.78, 0.55); // Puntos regulares en color original
+    colors.push(0.98, 0.78, 0.55); // Color original
   }
 }
 g.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
@@ -95,7 +96,6 @@ scene.add(points);
 let mouse = new THREE.Vector2();
 let raycaster = new THREE.Raycaster();
 let hoveredCraneIndex = null;
-let pausedIndices = new Set(); // Índices de puntos que deben pausar
 
 // Actualizar la posición del ratón
 window.addEventListener("mousemove", (event) => {
@@ -106,20 +106,9 @@ window.addEventListener("mousemove", (event) => {
   let intersects = raycaster.intersectObject(points);
 
   if (intersects.length > 0) {
-    hoveredCraneIndex = intersects[0].index; // Almacenar el índice del punto en hover
-
-    // Calcular los puntos en el radio cercano
-    let hoverPoint = pts[hoveredCraneIndex];
-    pausedIndices.clear(); // Limpiar índices pausados
-    for (let i = 0; i < pts.length; i++) {
-      if (i === hoveredCraneIndex) continue; // Ignorar el punto en hover
-      if (hoverPoint.distanceTo(pts[i]) <= 1.5) {
-        pausedIndices.add(i);
-      }
-    }
+    hoveredCraneIndex = intersects[0].index;
   } else {
-    hoveredCraneIndex = null; // Restablecer cuando no haya hover
-    pausedIndices.clear(); // Limpiar índices pausados
+    hoveredCraneIndex = null;
   }
 });
 
@@ -130,35 +119,11 @@ window.addEventListener("click", () => {
   }
 });
 
-// Bucle de animación
+// Bucle de animación con rotación suave
 renderer.setAnimationLoop(() => {
+  // Rotar suavemente la nube de puntos
+  points.rotation.y += 0.0004; // Controla la velocidad de rotación (más lento o más rápido)
+
   controls.update();
-
-  pts.forEach((p, idx) => {
-    if (pausedIndices.has(idx)) {
-      // Pausar movimiento para los puntos en el radio cercano
-      return;
-    }
-
-    let speed = 0.001;
-
-    // Movimiento normal de los puntos
-    p.applyAxisAngle(normals[idx], speed);
-
-    g.attributes.position.setXYZ(idx, p.x, p.y, p.z);
-  });
-
-  // Actualizar colores para el hover
-  colors = colors.map((v, i) => {
-    // if (hoveredCraneIndex !== null && Math.floor(i / 3) === hoveredCraneIndex) {
-    //   return i % 3 === 0 ? 0 : 1; // Destacar en verde
-    // }
-    return featuredPoints.has(Math.floor(i / 3)) ? (i % 3 === 0 ? 1 : 0) : 0.98; // Rojo u original
-  });
-
-  g.attributes.color.array = new Float32Array(colors);
-  g.attributes.color.needsUpdate = true;
-
-  g.attributes.position.needsUpdate = true;
   renderer.render(scene, camera);
 });
