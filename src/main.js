@@ -7,7 +7,7 @@ let scene, camera, renderer, controls, points;
 // Inicializar la escena
 function initScene() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x404040);
+  scene.background = new THREE.Color(0x232121);
 
   camera = new THREE.PerspectiveCamera(
     60,
