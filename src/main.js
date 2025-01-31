@@ -5,20 +5,30 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 let scene, camera, renderer, controls, points;
 
 // Variables globales
-let amount = 600;
+let amount = 250;
+let amountRotated = 250;
 let featuredCount = 200;
 let featuredPoints = new Set();
 let hoveredCraneIndex = null;
-let currentColors = new Map();
 let mouse = new THREE.Vector2();
 let raycaster = new THREE.Raycaster();
 let backgroundParticles;
 const MIN_DISTANCE = 1;
+const originalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" fill="none">
+  <path d="M25.6767 34.8889L32.2167 20.7495L13.2339 10.7123L25.6767 34.8889ZM48.1778 19.8567L47.1278 23.2734L52.6517 25.9651L48.1778 19.8567ZM16.8556 19.1784L11.5078 19.0323L22.2339 29.6367L16.8556 19.1789V19.1784ZM36.7411 27.5995L42.0484 37.5589L47.4578 19.9606L36.7411 27.5995ZM22.2828 43.8212L41.6495 38.2028L32.6628 21.3484L22.2828 43.8206V43.8212ZM20.26 40.0001L7.60614 42.3917L12.9139 44.8173L20.26 40.0001ZM24.1239 38.2462L7.32336 49.2723L21.4261 44.0784L24.1217 38.2506L24.1239 38.2462Z" fill="#929FE5"/>
+</svg>`;
+const rotatedSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" fill="none">
+  <path d="M34.3233 34.8889L27.7833 20.7495L46.7661 10.7123L34.3233 34.8889ZM11.8222 19.8567L12.8722 23.2734L7.3483 25.9651L11.8222 19.8567ZM43.1444 19.1784L48.4922 19.0323L37.7661 29.6367L43.1444 19.1789V19.1784ZM23.2589 27.5995L17.9516 37.5589L12.5422 19.9606L23.2589 27.5995ZM37.7172 43.8212L18.3505 38.2028L27.3372 21.3484L37.7172 43.8206V43.8212ZM39.74 40.0001L52.3939 42.3917L47.0861 44.8173L39.74 40.0001ZM35.8761 38.2462L52.6766 49.2723L38.5739 44.0784L35.8783 38.2506L35.8761 38.2462Z" fill="#929FE5"/>
+</svg>`;
 
-// Inicializar la escena
+const colors = {
+  normal: new THREE.Color(146 / 255, 159 / 255, 229 / 255),
+  featured: new THREE.Color(146 / 255, 159 / 255, 229 / 255),
+};
+
 function initScene() {
   scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x232121);
+  scene.background = new THREE.Color(0xfbfaf5);
 
   camera = new THREE.PerspectiveCamera(
     55,
@@ -41,7 +51,6 @@ function initScene() {
   controls.maxDistance = 20;
 }
 
-// Sistema de partículas de fondo
 function createBackgroundParticles() {
   const particleCount = 1000;
   const positions = new Float32Array(particleCount * 3);
@@ -77,10 +86,10 @@ function createBackgroundParticles() {
   geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 0.08,
-    color: 0x88ccff,
+    size: 0.5,
+    color: 0x7589f2,
     transparent: true,
-    opacity: 0.4,
+    // opacity: 0.4,
     blending: THREE.AdditiveBlending,
   });
 
@@ -121,23 +130,8 @@ function createBackgroundParticles() {
   };
 }
 
-// Crear sprite SVG
-function createSVGSprite() {
-  const randomIndex = Math.random() < 0.5 ? 0 : 1;
-
-  const svgString = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="114" height="114" viewBox="0 0 114 114" fill="none">
-      <path d="M65.2144 66.2889L52.7884 39.4239L88.8556 20.3532L65.2144 66.2889ZM22.4622 37.7277L24.4573 44.2193L13.9619 49.3335L22.4622 37.7277ZM81.9745 36.4388L92.1353 36.1612L71.7556 56.3097L81.9745 36.4399V36.4388ZM44.1919 52.4389L34.1082 71.3619L23.8303 37.925L44.1919 52.4389ZM71.6628 83.2601L34.8661 72.5853L51.9408 40.5618L71.6628 83.259V83.2601ZM75.506 76L99.5484 80.5441L89.4636 85.1527L75.506 76ZM68.1646 72.6676L100.086 93.6172L73.2904 83.7488L68.1689 72.676L68.1646 72.6676Z" fill="#929FE5"/>
-    </svg>
-  `;
-
-  const rotatedSvgString = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="142" height="142" viewBox="0 0 142 142" fill="none">
-      <path d="M60.7681 82.5703L76.2461 49.107L31.3202 25.3522L60.7681 82.5703ZM114.021 46.9941L111.536 55.0802L124.609 61.4505L114.021 46.9941ZM39.8915 45.3887L27.2351 45.0429L52.6202 70.1401L39.8915 45.39V45.3887ZM86.954 65.3187L99.5144 88.8893L112.317 47.24L86.954 65.3187ZM52.7359 103.71L98.5704 90.4132L77.3019 50.5244L52.7359 103.709V103.71ZM47.9487 94.6666L18.0011 100.327L30.5629 106.067L47.9487 94.6666ZM57.0932 90.5158L17.3319 116.611L50.7085 104.319L57.088 90.5263L57.0932 90.5158Z" fill="#929FE5"/>
-    </svg>
-`;
-
-  const blob = new Blob([randomIndex === 1 ? svgString : rotatedSvgString], {
+function createSVGSprite(svg) {
+  const blob = new Blob([svg], {
     type: "image/svg+xml",
   });
   const url = URL.createObjectURL(blob);
@@ -166,48 +160,212 @@ function createSVGSprite() {
   });
 }
 
-// Colores
-const colors = {
-  normal: new THREE.Color(146 / 255, 159 / 255, 229 / 255),
-  featured: new THREE.Color(0.49, 0.18, 0.25),
-  hover: new THREE.Color(1, 0.5, 0),
-};
-
-// Función para transición suave de colores
-function lerpColors(index, targetColor, speed = 0.1) {
-  const currentColor =
-    currentColors.get(index) ||
-    (featuredPoints.has(index) ? colors.featured : colors.normal);
-
-  const r = currentColor.r + (targetColor.r - currentColor.r) * speed;
-  const g = currentColor.g + (targetColor.g - currentColor.g) * speed;
-  const b = currentColor.b + (targetColor.b - currentColor.b) * speed;
-
-  const newColor = new THREE.Color(r, g, b);
-  currentColors.set(index, newColor);
-
-  const colorAttribute = points.geometry.attributes.color;
-  colorAttribute.setXYZ(index, newColor.r, newColor.g, newColor.b);
-
-  return (
-    Math.abs(targetColor.r - r) < 0.01 &&
-    Math.abs(targetColor.g - g) < 0.01 &&
-    Math.abs(targetColor.b - b) < 0.01
-  );
-}
-
-// Función para verificar si un punto está lo suficientemente lejos de los demás
-function isFarEnough(newPoint, existingPoints) {
-  for (let point of existingPoints) {
-    const distance = newPoint.distanceTo(point);
-    if (distance < MIN_DISTANCE) {
-      return false; // El punto está demasiado cerca de otro
-    }
-  }
-  return true; // El punto está lo suficientemente lejos
-}
-
 // Crear los puntos principales
+// async function createPoints() {
+//   const pts = [];
+//   const normals = [];
+//   const q = new THREE.Quaternion();
+//   const front = new THREE.Vector3(0, 0, 1);
+
+//   const existingPoints = []; // Para almacenar los puntos generados
+
+//   for (let i = 0; i < amount; i++) {
+//     let newPoint;
+//     let retries = 0;
+
+//     // Intentar generar un punto que no se superponga
+//     do {
+//       let randAngle = Math.random() * Math.PI * 2;
+//       let randRadius = Math.random();
+//       newPoint = new THREE.Vector3(
+//         Math.cos(randAngle) * (8 + randRadius),
+//         Math.sin(randAngle) * (8 + randRadius),
+//         0
+//       );
+
+//       // Aplicar rotación aleatoria
+//       let randNorm = new THREE.Vector3().randomDirection();
+//       q.setFromUnitVectors(front, randNorm);
+//       newPoint.applyQuaternion(q);
+
+//       retries++;
+//       // Limitar los intentos para evitar un bucle infinito
+//       if (retries > 100) {
+//         console.warn(
+//           "No se pudo encontrar un punto válido después de 100 intentos."
+//         );
+//         break;
+//       }
+//     } while (!isFarEnough(newPoint, existingPoints)); // Verificar si está lo suficientemente lejos
+
+//     // Agregar el punto a la lista de puntos existentes
+//     pts.push(newPoint);
+//     existingPoints.push(newPoint); // Guardamos este punto
+
+//     const randNorm = new THREE.Vector3().randomDirection();
+//     normals.push(randNorm);
+
+//     if (i < featuredCount) {
+//       featuredPoints.add(i);
+//     }
+//   }
+
+//   const geometry = new THREE.BufferGeometry().setFromPoints(pts);
+
+//   // Inicializar colores
+//   const colorArray = new Float32Array(amount * 3);
+//   for (let i = 0; i < amount; i++) {
+//     const color = featuredPoints.has(i) ? colors.featured : colors.normal;
+//     colorArray[i * 3] = color.r;
+//     colorArray[i * 3 + 1] = color.g;
+//     colorArray[i * 3 + 2] = color.b;
+//   }
+
+//   geometry.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
+
+//   const spriteTexture = await createSVGSprite(originalSvg);
+//   const material = new THREE.PointsMaterial({
+//     size: 1.85,
+//     map: spriteTexture,
+//     transparent: true,
+//     vertexColors: true,
+//     alphaTest: 0.5,
+//     depthWrite: false,
+//   });
+
+//   points = new THREE.Points(geometry, material);
+//   scene.add(points);
+// }
+// async function createPoints() {
+//   const pts = [];
+//   const normals = [];
+//   const q = new THREE.Quaternion();
+//   const front = new THREE.Vector3(0, 0, 1);
+
+//   const existingPoints = []; // Para almacenar los puntos generados
+
+//   // Generar puntos principales
+//   for (let i = 0; i < amount; i++) {
+//     let newPoint;
+//     let retries = 0;
+
+//     // Intentar generar un punto que no se superponga
+//     do {
+//       let randAngle = Math.random() * Math.PI * 2;
+//       let randRadius = Math.random();
+//       newPoint = new THREE.Vector3(
+//         Math.cos(randAngle) * (8 + randRadius),
+//         Math.sin(randAngle) * (8 + randRadius),
+//         0
+//       );
+
+//       // Aplicar rotación aleatoria
+//       let randNorm = new THREE.Vector3().randomDirection();
+//       q.setFromUnitVectors(front, randNorm);
+//       newPoint.applyQuaternion(q);
+
+//       retries++;
+//       // Limitar los intentos para evitar un bucle infinito
+//       if (retries > 100) {
+//         console.warn(
+//           "No se pudo encontrar un punto válido después de 100 intentos."
+//         );
+//         break;
+//       }
+//     } while (!isFarEnough(newPoint, existingPoints)); // Verificar si está lo suficientemente lejos
+
+//     // Agregar el punto a la lista de puntos existentes
+//     pts.push(newPoint);
+//     existingPoints.push(newPoint); // Guardamos este punto
+
+//     const randNorm = new THREE.Vector3().randomDirection();
+//     normals.push(randNorm);
+
+//     if (i < featuredCount) {
+//       featuredPoints.add(i);
+//     }
+//   }
+
+//   // Generar puntos rotados
+//   for (let i = 0; i < amountRotated; i++) {
+//     let newPoint;
+//     let retries = 0;
+
+//     // Intentar generar un punto que no se superponga
+//     do {
+//       let randAngle = Math.random() * Math.PI * 2;
+//       let randRadius = Math.random();
+//       newPoint = new THREE.Vector3(
+//         Math.cos(randAngle) * (8 + randRadius),
+//         Math.sin(randAngle) * (8 + randRadius),
+//         0
+//       );
+
+//       // Aplicar rotación aleatoria
+//       let randNorm = new THREE.Vector3().randomDirection();
+//       q.setFromUnitVectors(front, randNorm);
+//       newPoint.applyQuaternion(q);
+
+//       retries++;
+//       // Limitar los intentos para evitar un bucle infinito
+//       if (retries > 100) {
+//         console.warn(
+//           "No se pudo encontrar un punto válido después de 100 intentos."
+//         );
+//         break;
+//       }
+//     } while (!isFarEnough(newPoint, existingPoints)); // Verificar si está lo suficientemente lejos
+
+//     // Agregar el punto a la lista de puntos existentes
+//     pts.push(newPoint);
+//     existingPoints.push(newPoint); // Guardamos este punto
+
+//     const randNorm = new THREE.Vector3().randomDirection();
+//     normals.push(randNorm);
+//   }
+
+//   const geometry = new THREE.BufferGeometry().setFromPoints(pts);
+
+//   // Inicializar colores
+//   const colorArray = new Float32Array((amount + amountRotated) * 3);
+//   for (let i = 0; i < amount + amountRotated; i++) {
+//     const color = featuredPoints.has(i) ? colors.featured : colors.normal;
+//     colorArray[i * 3] = color.r;
+//     colorArray[i * 3 + 1] = color.g;
+//     colorArray[i * 3 + 2] = color.b;
+//   }
+
+//   geometry.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
+
+//   const spriteTexture = await createSVGSprite(originalSvg);
+//   const rotatedSpriteTexture = await createSVGSprite(rotatedSvg); // Crear textura para puntos rotados
+
+//   const material = new THREE.PointsMaterial({
+//     size: 1.85,
+//     map: spriteTexture,
+//     transparent: true,
+//     vertexColors: true,
+//     alphaTest: 0.5,
+//     depthWrite: false,
+//   });
+
+//   points = new THREE.Points(geometry, material);
+//   scene.add(points);
+
+//   // Crear un segundo conjunto de puntos para los puntos rotados
+//   const rotatedMaterial = new THREE.PointsMaterial({
+//     size: 1.85,
+//     map: rotatedSpriteTexture,
+//     transparent: true,
+//     vertexColors: true,
+//     alphaTest: 0.5,
+//     depthWrite: false,
+//   });
+
+//   const rotatedPoints = new THREE.Points(geometry, rotatedMaterial);
+//   scene.add(rotatedPoints);
+// }
+
 async function createPoints() {
   const pts = [];
   const normals = [];
@@ -216,6 +374,7 @@ async function createPoints() {
 
   const existingPoints = []; // Para almacenar los puntos generados
 
+  // Generar puntos principales
   for (let i = 0; i < amount; i++) {
     let newPoint;
     let retries = 0;
@@ -257,12 +416,49 @@ async function createPoints() {
     }
   }
 
-  //
+  // Generar puntos rotados
+  for (let i = 0; i < amountRotated; i++) {
+    let newPoint;
+    let retries = 0;
+
+    // Intentar generar un punto que no se superponga
+    do {
+      let randAngle = Math.random() * Math.PI * 2;
+      let randRadius = Math.random() * 2 + 10; // Aumentar el rango para mayor separación
+      newPoint = new THREE.Vector3(
+        Math.cos(randAngle) * randRadius,
+        Math.sin(randAngle) * randRadius,
+        Math.random() * 10 - 5 // Añadir variación en el eje Z
+      );
+
+      // Aplicar rotación aleatoria
+      let randNorm = new THREE.Vector3().randomDirection();
+      q.setFromUnitVectors(front, randNorm);
+      newPoint.applyQuaternion(q);
+
+      retries++;
+      // Limitar los intentos para evitar un bucle infinito
+      if (retries > 100) {
+        console.warn(
+          "No se pudo encontrar un punto válido después de 100 intentos."
+        );
+        break;
+      }
+    } while (!isFarEnough(newPoint, existingPoints)); // Verificar si está lo suficientemente lejos
+
+    // Agregar el punto a la lista de puntos existentes
+    pts.push(newPoint);
+    existingPoints.push(newPoint); // Guardamos este punto
+
+    const randNorm = new THREE.Vector3().randomDirection();
+    normals.push(randNorm);
+  }
+
   const geometry = new THREE.BufferGeometry().setFromPoints(pts);
 
   // Inicializar colores
-  const colorArray = new Float32Array(amount * 3);
-  for (let i = 0; i < amount; i++) {
+  const colorArray = new Float32Array((amount + amountRotated) * 3);
+  for (let i = 0; i < amount + amountRotated; i++) {
     const color = featuredPoints.has(i) ? colors.featured : colors.normal;
     colorArray[i * 3] = color.r;
     colorArray[i * 3 + 1] = color.g;
@@ -271,7 +467,9 @@ async function createPoints() {
 
   geometry.setAttribute("color", new THREE.BufferAttribute(colorArray, 3));
 
-  const spriteTexture = await createSVGSprite();
+  const spriteTexture = await createSVGSprite(originalSvg);
+  const rotatedSpriteTexture = await createSVGSprite(rotatedSvg); // Crear textura para puntos rotados
+
   const material = new THREE.PointsMaterial({
     size: 1.85,
     map: spriteTexture,
@@ -283,9 +481,32 @@ async function createPoints() {
 
   points = new THREE.Points(geometry, material);
   scene.add(points);
+
+  // Crear un segundo conjunto de puntos para los puntos rotados
+  const rotatedMaterial = new THREE.PointsMaterial({
+    size: 1.85,
+    map: rotatedSpriteTexture,
+    transparent: true,
+    vertexColors: true,
+    alphaTest: 0.5,
+    depthWrite: false,
+  });
+
+  const rotatedPoints = new THREE.Points(geometry, rotatedMaterial);
+  scene.add(rotatedPoints);
 }
 
-// Event listeners
+// Modificar la función isFarEnough para aceptar un parámetro de distancia
+function isFarEnough(newPoint, existingPoints, minDistance = MIN_DISTANCE) {
+  for (let point of existingPoints) {
+    const distance = newPoint.distanceTo(point);
+    if (distance < minDistance) {
+      return false; // El punto está demasiado cerca de otro
+    }
+  }
+  return true; // El punto está lo suficientemente lejos
+}
+
 function setupEventListeners() {
   window.addEventListener("resize", () => {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -305,35 +526,12 @@ function setupEventListeners() {
   });
 }
 
-// Función de animación
 function animate() {
   requestAnimationFrame(animate);
 
   backgroundParticles.update();
 
   raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObject(points);
-
-  if (intersects.length > 0) {
-    const index = intersects[0].index;
-    if (hoveredCraneIndex !== index) {
-      if (hoveredCraneIndex !== null) {
-        const originalColor = featuredPoints.has(hoveredCraneIndex)
-          ? colors.featured
-          : colors.normal;
-        lerpColors(hoveredCraneIndex, originalColor);
-      }
-      hoveredCraneIndex = index;
-    }
-    lerpColors(index, colors.hover);
-  } else if (hoveredCraneIndex !== null) {
-    const originalColor = featuredPoints.has(hoveredCraneIndex)
-      ? colors.featured
-      : colors.normal;
-    if (lerpColors(hoveredCraneIndex, originalColor)) {
-      hoveredCraneIndex = null;
-    }
-  }
 
   points.geometry.attributes.color.needsUpdate = true;
   points.rotation.y += 0.0001;
@@ -342,7 +540,6 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-// Inicialización principal
 async function init() {
   initScene();
   backgroundParticles = createBackgroundParticles();
@@ -353,5 +550,4 @@ async function init() {
   animate();
 }
 
-// Iniciar la aplicación
 init();
