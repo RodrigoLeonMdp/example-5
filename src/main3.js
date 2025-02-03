@@ -3,7 +3,8 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 
 let scene, camera, renderer, controls;
 let points = [],
-  specialPoints = [];
+  specialPoints = [],
+  floatingPoints;
 const totalPoints = 300;
 const totalSpecialPoints = 200;
 const floatingDots = 200;
@@ -122,12 +123,12 @@ function createPoint(i, total, scale, material, targetArray, offset = 0) {
 
 function createFloatingDots() {
   const dotMaterial = new THREE.MeshBasicMaterial({ color: 0x929fe5 });
-  const dotGeometry = new THREE.SphereGeometry(0.03, 8, 8);
+  const dotGeometry = new THREE.SphereGeometry(0.02, 8, 8);
   for (let i = 0; i < floatingDots; i++) {
     const position = randomSpherePosition(2.5);
     const dot = new THREE.Mesh(dotGeometry, dotMaterial);
     dot.position.copy(position);
-    // scene.add(dot);
+    scene.add(dot);
   }
 }
 
@@ -179,6 +180,7 @@ function animate() {
   controls.update();
   updateOpacity(points);
   updateOpacity(specialPoints);
+  // updateOpacity(floatingPoints);
   renderer.render(scene, camera);
 }
 
