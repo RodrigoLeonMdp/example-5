@@ -169,6 +169,14 @@ function animate() {
     point.material.transparent = true;
   });
 
+  specialPoints.forEach((point) => {
+    const pointDirection = point.position.clone().normalize();
+    const dot = cameraDirection.dot(pointDirection);
+
+    point.material.opacity = Math.max(0.2, 0.3 - dot);
+    point.material.transparent = true;
+  });
+
   renderer.render(scene, camera);
 }
 animate();
