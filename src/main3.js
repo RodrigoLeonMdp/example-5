@@ -4,7 +4,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 let scene, camera, renderer, controls;
 let points = [],
   specialPoints = [],
-  floatingPoints;
+  floatingPoints = [];
 const totalPoints = 300;
 const totalSpecialPoints = 200;
 const floatingDots = 200;
@@ -122,13 +122,18 @@ function createPoint(i, total, scale, material, targetArray, offset = 0) {
 }
 
 function createFloatingDots() {
-  const dotMaterial = new THREE.MeshBasicMaterial({ color: 0x929fe5 });
-  const dotGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+  const dotMaterial = new THREE.SpriteMaterial({
+    color: 0x929fe5,
+    transparent: true,
+  });
+
   for (let i = 0; i < floatingDots; i++) {
-    const position = randomSpherePosition(2.5);
-    const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+    const position = randomSpherePosition(3);
+    const dot = new THREE.Sprite(dotMaterial);
     dot.position.copy(position);
+    dot.scale.set(0.03, 0.03, 0.03);
     scene.add(dot);
+    floatingPoints.push(dot);
   }
 }
 
@@ -180,7 +185,7 @@ function animate() {
   controls.update();
   updateOpacity(points);
   updateOpacity(specialPoints);
-  // updateOpacity(floatingPoints);
+  updateOpacityOfFloatingPoints();
   renderer.render(scene, camera);
 }
 
@@ -189,7 +194,17 @@ function updateOpacity(pointArray) {
   camera.getWorldDirection(cameraDirection);
   pointArray.forEach((point) => {
     const dot = cameraDirection.dot(point.position.clone().normalize());
-    point.material.opacity = Math.max(0.2, 0.1 - dot);
+    point.material.opacity = Math.max(0.3, 0.1 - dot);
+    point.material.transparent = true;
+  });
+}
+
+function updateOpacityOfFloatingPoints() {
+  const cameraDirection = new THREE.Vector3();
+  camera.getWorldDirection(cameraDirection);
+  floatingPoints.forEach((point) => {
+    const dot = cameraDirection.dot(point.position.clone().normalize());
+    point.material.opacity = 0.25;
     point.material.transparent = true;
   });
 }
