@@ -15,6 +15,36 @@ const rotatedSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="6
 <path d="M34.3233 34.8889L27.7833 20.7495L46.7661 10.7123L34.3233 34.8889ZM11.8222 19.8567L12.8722 23.2734L7.3483 25.9651L11.8222 19.8567ZM43.1444 19.1784L48.4922 19.0323L37.7661 29.6367L43.1444 19.1789V19.1784ZM23.2589 27.5995L17.9516 37.5589L12.5422 19.9606L23.2589 27.5995ZM37.7172 43.8212L18.3505 38.2028L27.3372 21.3484L37.7172 43.8206V43.8212ZM39.74 40.0001L52.3939 42.3917L47.0861 44.8173L39.74 40.0001ZM35.8761 38.2462L52.6766 49.2723L38.5739 44.0784L35.8783 38.2506L35.8761 38.2462Z" fill="#929FE5"/>
 </svg>`;
 
+// Crear modal HTML
+document.body.insertAdjacentHTML(
+  "beforeend",
+  `
+  <div id="infoModal" class="modal">
+    <span id="closeModal">&times;</span>
+    
+    <div class="modal-content">
+      <div class="image-wrapper"></div>
+      <div class="info-wrapper">
+        <h2>Tetsutani Shinichi (鉄谷 伸一)</h2>
+        <div class="resume"><span>Boy killed by the atomic bombing of Hiroshima at 3 years of age</span></div>
+        <div class="description">
+          <p>At the time of the atomic bombing, Shinichi was riding his tricycle in front of his house, around 1.5 kilometres from the hypocentre.</p>
+          <p>
+            He suffered major injuries, including burns that covered his body, and died that night. His father, Nobuo, recalled his cries for water before he took his last breaths.
+          </p>
+        </div>
+
+        <span class="btn">Read more ›</span>
+      </div>
+    </div>
+  </div>
+`
+);
+
+document.getElementById("closeModal").addEventListener("click", () => {
+  document.getElementById("infoModal").style.display = "none";
+});
+
 // Crear la escena
 scene = new THREE.Scene();
 // scene.background = new THREE.Color(0xfaf9f6);
@@ -148,7 +178,11 @@ window.addEventListener("click", (event) => {
   );
 
   if (validIntersect) {
-    alert("Grulla seleccionada");
+    const modal = document.getElementById("infoModal");
+    // document.getElementById("modalTitle").innerText = "Paper crane selected";
+    // document.getElementById("modalContent").innerText =
+    //   "Coordenadas: " + JSON.stringify(intersects[0].point);
+    modal.style.display = "block";
   }
 });
 
