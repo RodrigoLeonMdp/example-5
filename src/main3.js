@@ -47,7 +47,6 @@ document.getElementById("closeModal").addEventListener("click", () => {
 
 // Crear la escena
 scene = new THREE.Scene();
-// scene.background = new THREE.Color(0xfaf9f6);
 
 const textureBg = new THREE.TextureLoader().load("");
 scene.background = textureBg;
@@ -104,14 +103,44 @@ const createCraneTexture = async (svgParam = originalSvg) => {
 const texture = await createCraneTexture(rotatedSvg);
 const material = new THREE.SpriteMaterial({ map: texture, transparent: true });
 
-// Distribuir los puntos en una esfera
-for (let i = 0; i < totalPoints; i++) {
-  const phi = Math.acos(-1 + (2 * i) / totalPoints);
-  const theta = Math.sqrt(totalPoints * Math.PI) * phi;
+const specialTexture = await createCraneTexture();
+const specialMaterial = new THREE.SpriteMaterial({
+  map: specialTexture,
+  transparent: true,
+});
 
-  const x = Math.cos(theta) * Math.sin(phi);
-  const y = Math.sin(theta) * Math.sin(phi);
-  const z = Math.cos(phi);
+// Función para verificar colisiones
+function isColliding(newPoint, existingPoints, minDistance) {
+  for (const point of existingPoints) {
+    const distance = newPoint.distanceTo(point.position);
+    if (distance < minDistance) {
+      return true; // Hay colisión
+    }
+  }
+  return false; // No hay colisión
+}
+
+const minDistance = 0; // Distancia mínima entre puntos
+
+// Distribuir los puntos en una esfera (points)
+for (let i = 0; i < totalPoints; i++) {
+  let collision = true;
+  let x, y, z;
+
+  // Intentar posicionar el punto hasta que no haya colisión
+  while (collision) {
+    const phi = Math.acos(-1 + (2 * i) / totalPoints);
+    const theta = Math.sqrt(totalPoints * Math.PI) * phi;
+
+    x = Math.cos(theta) * Math.sin(phi);
+    y = Math.sin(theta) * Math.sin(phi);
+    z = Math.cos(phi);
+
+    const newPosition = new THREE.Vector3(x, y, z).multiplyScalar(2);
+
+    // Verificar colisión
+    collision = isColliding(newPosition, points, minDistance);
+  }
 
   const sprite = new THREE.Sprite(material.clone());
   sprite.position.set(x, y, z).multiplyScalar(2);
@@ -120,25 +149,33 @@ for (let i = 0; i < totalPoints; i++) {
   points.push(sprite);
 }
 
-const specialTexture = await createCraneTexture();
-const specialMaterial = new THREE.SpriteMaterial({
-  map: specialTexture,
-  transparent: true,
-});
-
-const specialRadiusFactor = 2; // Un poco más grande que los puntos normales
-
+// Distribuir los puntos especiales (specialPoints)
 for (let i = 0; i < totalSpecialPoints; i++) {
-  const phi = Math.acos(-1 + (2 * i) / totalSpecialPoints);
-  const theta = Math.sqrt(totalSpecialPoints * Math.PI) * phi + Math.PI / 4; // Desfase en theta
+  let collision = true;
+  let x, y, z;
 
-  const x = Math.cos(theta) * Math.sin(phi);
-  const y = Math.sin(theta) * Math.sin(phi);
-  const z = Math.cos(phi);
+  // Intentar posicionar el punto hasta que no haya colisión
+  while (collision) {
+    const phi = Math.acos(-1 + (2 * i) / totalSpecialPoints);
+    const theta = Math.sqrt(totalSpecialPoints * Math.PI) * phi + Math.PI / 4;
+
+    x = Math.cos(theta) * Math.sin(phi);
+    y = Math.sin(theta) * Math.sin(phi);
+    z = Math.cos(phi);
+
+    const newPosition = new THREE.Vector3(x, y, z).multiplyScalar(2.2);
+
+    // Verificar colisión
+    collision = isColliding(
+      newPosition,
+      [...points, ...specialPoints],
+      minDistance
+    );
+  }
 
   const sprite = new THREE.Sprite(specialMaterial.clone());
-  sprite.position.set(x, y, z).multiplyScalar(specialRadiusFactor); // Usar un radio mayor
-  sprite.scale.set(0.25, 0.25, 0.25); // Un poco más grandes si lo deseas
+  sprite.position.set(x, y, z).multiplyScalar(2.2);
+  sprite.scale.set(0.25, 0.25, 0.25);
   scene.add(sprite);
   specialPoints.push(sprite);
 }
@@ -147,19 +184,25 @@ for (let i = 0; i < totalSpecialPoints; i++) {
 const dotMaterial = new THREE.MeshBasicMaterial({ color: 0x929fe5 });
 const dotGeometry = new THREE.SphereGeometry(0.03, 8, 8);
 
-// Crear puntos flotantes alrededor de la esfera principal
+// Crear puntos flotantes alrededor de la esfera sin superponerse
 for (let i = 0; i < floatingDots; i++) {
+  let valid = false;
+  let attempts = 0;
+  let newPos;
+  const radius = 2.5; // Ligeramente mayor que la esfera principal
+
   const theta = Math.random() * Math.PI * 2;
   const phi = Math.acos(2 * Math.random() - 1);
-  const radius = 2.4; // Ligeramente mayor que la esfera principal
 
   const x = radius * Math.sin(phi) * Math.cos(theta);
   const y = radius * Math.sin(phi) * Math.sin(theta);
   const z = radius * Math.cos(phi);
 
+  newPos = new THREE.Vector3(x, y, z);
+
   const dot = new THREE.Mesh(dotGeometry, dotMaterial);
-  dot.position.set(x, y, z);
-  // scene.add(dot);
+  dot.position.copy(newPos);
+  scene.add(dot);
 }
 
 // Raycaster para detectar clics
@@ -171,17 +214,15 @@ window.addEventListener("click", (event) => {
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
   raycaster.setFromCamera(mouse, camera);
-  const intersects = raycaster.intersectObjects(points, true);
 
-  const validIntersect = intersects.find(
-    (intersect) => intersect.object.material.opacity > 0.75
+  // Verificar intersecciones con todos los puntos
+  const intersects = raycaster.intersectObjects(
+    [...points, ...specialPoints],
+    true
   );
 
-  if (validIntersect) {
+  if (intersects.length > 0) {
     const modal = document.getElementById("infoModal");
-    // document.getElementById("modalTitle").innerText = "Paper crane selected";
-    // document.getElementById("modalContent").innerText =
-    //   "Coordenadas: " + JSON.stringify(intersects[0].point);
     modal.style.display = "block";
   }
 });
