@@ -56,8 +56,16 @@ function createScene() {
 async function createTextures() {
   const texture = await createCraneTexture(rotatedSvg);
   const specialTexture = await createCraneTexture(originalSvg);
+
+  // Colors
   const redTexture = await createCraneTexture(
     originalSvg.replace(/fill="#929FE5"/g, 'fill="#E03822"')
+  );
+  const greenTexture = await createCraneTexture(
+    originalSvg.replace(/fill="#929FE5"/g, 'fill="#80CBA9"')
+  );
+  const yellowTexture = await createCraneTexture(
+    originalSvg.replace(/fill="#929FE5"/g, 'fill="#AE9251"')
   );
 
   window.material = new THREE.SpriteMaterial({
@@ -70,6 +78,14 @@ async function createTextures() {
   });
   window.redMaterial = new THREE.SpriteMaterial({
     map: redTexture,
+    transparent: true,
+  });
+  window.greenMaterial = new THREE.SpriteMaterial({
+    map: greenTexture,
+    transparent: true,
+  });
+  window.yellowMaterial = new THREE.SpriteMaterial({
+    map: yellowTexture,
     transparent: true,
   });
 }
@@ -106,10 +122,10 @@ function createPoints() {
   }
 
   for (let i = 0; i < totalPoints; i++) {
-    let materialToUse = redIndexes.has(i)
+    const material = redIndexes.has(i)
       ? window.redMaterial
-      : window.material;
-    createPoint(i, totalPoints, 2, materialToUse, points);
+      : getRandomMaterial();
+    createPoint(i, totalPoints, 2, material, points);
   }
 
   for (let i = 0; i < totalSpecialPoints; i++) {
@@ -122,6 +138,14 @@ function createPoints() {
       Math.PI / 4
     );
   }
+}
+
+function getRandomMaterial() {
+  const randomValue = Math.random();
+
+  if (randomValue < 0.6) return window.material;
+  if (randomValue < 0.8) return window.greenMaterial;
+  return window.yellowMaterial;
 }
 
 function createPoint(i, total, scale, material, targetArray, offset = 0) {
