@@ -15,6 +15,9 @@ const originalSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="500" height=
 const rotatedSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 60 60" fill="none">
 <path d="M34.3233 34.8889L27.7833 20.7495L46.7661 10.7123L34.3233 34.8889ZM11.8222 19.8567L12.8722 23.2734L7.3483 25.9651L11.8222 19.8567ZM43.1444 19.1784L48.4922 19.0323L37.7661 29.6367L43.1444 19.1789V19.1784ZM23.2589 27.5995L17.9516 37.5589L12.5422 19.9606L23.2589 27.5995ZM37.7172 43.8212L18.3505 38.2028L27.3372 21.3484L37.7172 43.8206V43.8212ZM39.74 40.0001L52.3939 42.3917L47.0861 44.8173L39.74 40.0001ZM35.8761 38.2462L52.6766 49.2723L38.5739 44.0784L35.8783 38.2506L35.8761 38.2462Z" fill="#929FE5"/>
 </svg>`;
+const circleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8" viewBox="0 0 8 8" fill="none">
+  <circle cx="4" cy="4" r="4" fill="#7589F2"/>
+</svg>`;
 
 init();
 async function init() {
@@ -137,17 +140,23 @@ function createPoint(i, total, scale, material, targetArray, offset = 0) {
   targetArray.push(sprite);
 }
 
-function createFloatingDots() {
+async function createFloatingDots() {
+  const svgTexture = await createCraneTexture(circleSvg);
+
   const dotMaterial = new THREE.SpriteMaterial({
-    color: 0x929fe5,
+    map: svgTexture,
     transparent: true,
   });
 
   for (let i = 0; i < floatingDots; i++) {
     const position = randomSpherePosition(3);
+    // Tamaño aleatorio entre 0.02 y 0.05
+    const scale = 0.02 + Math.random() * 0.02;
+
     const dot = new THREE.Sprite(dotMaterial);
     dot.position.copy(position);
-    dot.scale.set(0.03, 0.03, 0.03);
+    dot.scale.set(scale, scale, scale);
+
     scene.add(dot);
     floatingPoints.push(dot);
   }
@@ -222,7 +231,7 @@ function updateOpacityOfFloatingPoints() {
   camera.getWorldDirection(cameraDirection);
   floatingPoints.forEach((point) => {
     const dot = cameraDirection.dot(point.position.clone().normalize());
-    point.material.opacity = 0.25;
+    point.material.opacity = 0.35;
     point.material.transparent = true;
   });
 }
