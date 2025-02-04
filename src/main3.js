@@ -183,16 +183,18 @@ function onClick(event) {
   const raycaster = new THREE.Raycaster();
   raycaster.setFromCamera(mouse, camera);
   const intersects = raycaster.intersectObjects(
-    [...points, ...specialPoints],
+    [...points, ...specialPoints, ...floatingPoints],
     true
   );
 
-  const validIntersect = intersects.find(
-    (intersect) => intersect.object.material.opacity > 0.75
-  );
+  if (intersects.length > 0) {
+    const clickedObject = intersects[0].object;
 
-  if (validIntersect) {
-    document.getElementById("infoModal").style.display = "block";
+    if (floatingPoints.includes(clickedObject)) {
+      document.getElementById("floatingModal").style.display = "block";
+    } else {
+      document.getElementById("infoModal").style.display = "block";
+    }
   }
 }
 
@@ -248,10 +250,35 @@ function initializeModal() {
           </div>
         </div>
       </div>
+
+       <!-- Nuevo Modal para los puntos flotantes -->
+      <div id="floatingModal" class="modal">
+        <span id="closeFloatingModal">&times;</span>
+        <div class="modal-content">
+          <svg xmlns="http://www.w3.org/2000/svg" width="172" height="147" viewBox="0 0 172 147" fill="none">
+            <path d="M38.0581 30.4809L48.9097 51.6928L69.6451 92.1656L94.4629 38.26L22.4291 0L37.9961 30.3874C38.0147 30.4185 38.0457 30.4435 38.0581 30.4809ZM155.025 34.8629L151.755 45.5467L151.041 47.8905L172 58.1505L155.025 34.8629ZM46.6885 52.8023L36.172 32.2698L15.8772 31.715L56.5785 72.138L46.6885 52.8023ZM111.631 64.3776L131.77 102.345L149.385 44.8112L152.295 35.2556L111.631 64.3776ZM70.8363 95.5441C70.8363 95.5441 70.8053 95.5877 70.7929 95.6064L65.941 106.141L56.7646 126.218L130.25 104.801L96.1505 40.5476L70.8363 95.5441ZM46.3597 113.452L49.0897 111.651L1.07337 120.77L21.213 130.02L46.3597 113.452ZM63.7508 104.969L55.6912 110.28C55.6912 110.28 55.6664 110.298 55.654 110.311L47.6316 115.597L0 147L53.5135 127.203L63.7446 104.988V104.969H63.7508Z" fill="#697BC4"/>
+          </svg>
+          <h2>Many of the children who were victims of the atomic bombings are yet to be identified by their name</h2>
+          <p>the Paper crane is a symbol of their lives and the need to remember and honor them</p>
+          <span class="btn">Read more ›</span>
+        </div>
+      </div>
     `
   );
 
   document.getElementById("closeModal").addEventListener("click", () => {
     document.getElementById("infoModal").style.display = "none";
   });
+
+  document
+    .getElementById("closeFloatingModal")
+    .addEventListener("click", () => {
+      document.getElementById("floatingModal").style.display = "none";
+    });
+
+  document
+    .querySelector("#floatingModal .btn")
+    .addEventListener("click", () => {
+      document.getElementById("floatingModal").style.display = "none";
+    });
 }
