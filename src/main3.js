@@ -53,6 +53,9 @@ function createScene() {
 async function createTextures() {
   const texture = await createCraneTexture(rotatedSvg);
   const specialTexture = await createCraneTexture(originalSvg);
+  const redTexture = await createCraneTexture(
+    originalSvg.replace(/fill="#929FE5"/g, 'fill="#E03822"')
+  );
 
   window.material = new THREE.SpriteMaterial({
     map: texture,
@@ -60,6 +63,10 @@ async function createTextures() {
   });
   window.specialMaterial = new THREE.SpriteMaterial({
     map: specialTexture,
+    transparent: true,
+  });
+  window.redMaterial = new THREE.SpriteMaterial({
+    map: redTexture,
     transparent: true,
   });
 }
@@ -90,9 +97,18 @@ async function createCraneTexture(svg) {
 }
 
 function createPoints() {
-  for (let i = 0; i < totalPoints; i++) {
-    createPoint(i, totalPoints, 2, window.material, points);
+  const redIndexes = new Set();
+  while (redIndexes.size < 50) {
+    redIndexes.add(Math.floor(Math.random() * totalPoints));
   }
+
+  for (let i = 0; i < totalPoints; i++) {
+    let materialToUse = redIndexes.has(i)
+      ? window.redMaterial
+      : window.material;
+    createPoint(i, totalPoints, 2, materialToUse, points);
+  }
+
   for (let i = 0; i < totalSpecialPoints; i++) {
     createPoint(
       i,
